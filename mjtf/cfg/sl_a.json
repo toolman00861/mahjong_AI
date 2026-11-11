@@ -1,0 +1,51 @@
+{
+ "run": "sl_a",
+ "train_sources": [
+  "majsoul-throne-2023",
+  "majsoul-throne-2024",
+  "majsoul-jade-2019"
+ ],
+ "val_sources": [
+  "majsoul-throne-2023",
+  "majsoul-throne-2024"
+ ],
+ "val_kinds": [
+  "hanchan"
+ ],
+ "batch_size": 1024,
+ "lr": 0.0003,
+ "warmup": 3000,
+ "max_steps": 300000,
+ "final_lr_frac": 0.05,
+ "epochs": 3,
+ "augment": true,
+ "workers": 8,
+ "file_batch": 4,
+ "model": {
+  "in_ch": 1014,
+  "d_model": 512,
+  "n_layers": 12,
+  "n_heads": 8
+ },
+ "w_rank": 0.05,
+ "w_delta": 0.2,
+ "w_value": 0.05,
+ "log_every": 200,
+ "eval_every": 2000,
+ "eval_batches": 100,
+ "save_every": 2000,
+ "compile": true,
+ "wd": 0.05,
+ "clip": 1,
+ "kinds": [
+  "hanchan"
+ ],
+ "shuffle_buffer": 65536,
+ "prefetch_factor": 2,
+ "max_samples_per_player": 64,
+ "val_loss_limits": {
+  "rank": 1.9,
+  "value": 1.7
+ },
+ "val_limit_patience": 3
+}

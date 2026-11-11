@@ -4,3 +4,10 @@
 *.ptx
 *.cubin
 *.fatbin
+
+# Python / training artifacts
+__pycache__/
+*.pyc
+*.tar
+models/final_rl_it40.pth
+models/*_with_opt.pth

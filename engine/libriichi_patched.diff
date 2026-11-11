@@ -1,0 +1,285 @@
+diff --git a/libriichi/src/arena/board.rs b/libriichi/src/arena/board.rs
+index 5c52ab9..04221ae 100644
+--- a/libriichi/src/arena/board.rs
++++ b/libriichi/src/arena/board.rs
+@@ -45,6 +45,8 @@ pub struct Board {
+     pub dora_indicators: Vec<Tile>,
+     /// Goes forward (iter)
+     pub ura_indicators: Vec<Tile>,
++    /// Extension: East-only game.
++    pub tonpuu: bool,
+ }
+ 
+ #[derive(Derivative)]
+@@ -218,6 +220,7 @@ impl BoardState {
+             oya: self.oya,
+             scores: self.board.scores,
+             tehais: self.board.haipai,
++            tonpuu: self.board.tonpuu.then_some(true),
+         };
+         self.broadcast(&start_kyoku);
+         self.add_log_no_meta(start_kyoku);
+@@ -714,7 +717,7 @@ impl BoardState {
+                         arr.fill_rows(idx, n, 1.);
+                         idx += 6;
+                     }
+-                    2 | 3 | 4 => {
++                    2 | 3 | 4 | 5 | 6 => {
+                         arr.fill(idx + n, 1.);
+                         idx += 7;
+ 
+diff --git a/libriichi/src/arena/game.rs b/libriichi/src/arena/game.rs
+index 9fee2df..a42a959 100644
+--- a/libriichi/src/arena/game.rs
++++ b/libriichi/src/arena/game.rs
+@@ -80,6 +80,7 @@ impl Game {
+                 honba: self.honba,
+                 kyotaku: self.kyotaku,
+                 scores: self.scores,
++                tonpuu: self.length == 4,
+                 ..Default::default()
+             };
+             next_board.init_from_seed(self.seed);
+diff --git a/libriichi/src/arena/one_vs_three.rs b/libriichi/src/arena/one_vs_three.rs
+index d7551e6..58b65f4 100644
+--- a/libriichi/src/arena/one_vs_three.rs
++++ b/libriichi/src/arena/one_vs_three.rs
+@@ -19,16 +19,18 @@ use rayon::prelude::*;
+ pub struct OneVsThree {
+     pub disable_progress_bar: bool,
+     pub log_dir: Option<String>,
++    pub game_length: u8,
+ }
+ 
+ #[pymethods]
+ impl OneVsThree {
+     #[new]
+-    #[pyo3(signature = (*, disable_progress_bar=false, log_dir=None))]
+-    const fn new(disable_progress_bar: bool, log_dir: Option<String>) -> Self {
++    #[pyo3(signature = (*, disable_progress_bar=false, log_dir=None, game_length=8))]
++    const fn new(disable_progress_bar: bool, log_dir: Option<String>, game_length: u8) -> Self {
+         Self {
+             disable_progress_bar,
+             log_dir,
++            game_length,
+         }
+     }
+ 
+@@ -159,7 +161,11 @@ impl OneVsThree {
+             new_challenger_agent(&challenger_player_ids)?,
+             new_champion_agent(&champion_player_ids)?,
+         ];
+-        let batch_game = BatchGame::tenhou_hanchan(self.disable_progress_bar);
++        let batch_game = BatchGame {
++            length: self.game_length,
++            init_scores: [25000; 4],
++            disable_progress_bar: self.disable_progress_bar,
++        };
+ 
+         let mut challenger_idx = 0;
+         let mut champion_idx = 0;
+diff --git a/libriichi/src/consts.rs b/libriichi/src/consts.rs
+index 55bcf68..d718811 100644
+--- a/libriichi/src/consts.rs
++++ b/libriichi/src/consts.rs
+@@ -2,7 +2,7 @@ use crate::py_helper::add_submodule;
+ 
+ use pyo3::prelude::*;
+ 
+-pub const MAX_VERSION: u32 = 4;
++pub const MAX_VERSION: u32 = 6;
+ 
+ pub const ACTION_SPACE: usize = 37 // discard | kan (choice)
+                               + 1  // riichi
+@@ -23,6 +23,7 @@ pub const fn obs_shape(version: u32) -> (usize, usize) {
+         2 => (942, 34),
+         3 => (934, 34),
+         4 => (1012, 34),
++        5 | 6 => (1014, 34),
+         _ => unreachable!(),
+     }
+ }
+@@ -32,7 +33,7 @@ pub const fn obs_shape(version: u32) -> (usize, usize) {
+ pub const fn oracle_obs_shape(version: u32) -> (usize, usize) {
+     match version {
+         1 => (211, 34),
+-        2 | 3 | 4 => (217, 34),
++        2 | 3 | 4 | 5 | 6 => (217, 34),
+         _ => unreachable!(),
+     }
+ }
+diff --git a/libriichi/src/dataset/invisible.rs b/libriichi/src/dataset/invisible.rs
+index 86fc4ee..a8e9d87 100644
+--- a/libriichi/src/dataset/invisible.rs
++++ b/libriichi/src/dataset/invisible.rs
+@@ -183,7 +183,7 @@ impl Invisible {
+                     arr.fill_rows(idx, n, 1.);
+                     idx += 6;
+                 }
+-                2 | 3 | 4 => {
++                2 | 3 | 4 | 5 | 6 => {
+                     arr.fill(idx + n, 1.);
+                     idx += 7;
+ 
+diff --git a/libriichi/src/mjai/event.rs b/libriichi/src/mjai/event.rs
+index 3b92f06..47c5ebc 100644
+--- a/libriichi/src/mjai/event.rs
++++ b/libriichi/src/mjai/event.rs
+@@ -40,6 +40,9 @@ pub enum Event {
+         oya: u8,
+         scores: [i32; 4],
+         tehais: [[Tile; 13]; 4],
++        /// Extension: Some(true) for tonpuu (East-only) games.
++        #[serde(default)]
++        tonpuu: Option<bool>,
+     },
+ 
+     Tsumo {
+diff --git a/libriichi/src/state/obs_repr.rs b/libriichi/src/state/obs_repr.rs
+index 998917f..6b17332 100644
+--- a/libriichi/src/state/obs_repr.rs
++++ b/libriichi/src/state/obs_repr.rs
+@@ -22,6 +22,8 @@ struct ObsEncoderContext<'a> {
+     idx: usize,
+     at_kan_select: bool,
+     version: u32,
++    extra_v5: bool,
++    skip_sp: bool,
+ }
+ 
+ #[must_use]
+@@ -111,6 +113,9 @@ impl<'a> ObsEncoderContext<'a> {
+     fn new(state: &'a PlayerState, version: u32, at_kan_select: bool) -> Self {
+         assert!(version <= MAX_VERSION);
+         let shape = obs_shape(version);
++        let extra_v5 = version == 5 || version == 6;
++        let skip_sp = version == 6;
++        let version = if extra_v5 { 4 } else { version };
+         let arr = Simple2DArray::new(shape.0);
+         let mask = Array1::default(ACTION_SPACE);
+         Self {
+@@ -120,6 +125,8 @@ impl<'a> ObsEncoderContext<'a> {
+             idx: 0,
+             at_kan_select,
+             version,
++            extra_v5,
++            skip_sp,
+         }
+     }
+ 
+@@ -562,7 +569,8 @@ impl<'a> ObsEncoderContext<'a> {
+         self.idx += 1;
+ 
+         if self.version == 4 {
+-            if let Ok(SinglePlayerTables { max_ev_table }) = state.single_player_tables() {
++            let sp_tables = if self.skip_sp { None } else { state.single_player_tables().ok() };
++            if let Some(SinglePlayerTables { max_ev_table }) = sp_tables {
+                 // Get the max EV from the table that maximizes EV, which should
+                 // be the global max EV.
+                 //
+@@ -623,6 +631,17 @@ impl<'a> ObsEncoderContext<'a> {
+             }
+         }
+ 
++        if self.extra_v5 {
++            if state.is_tonpuu {
++                self.arr.fill(self.idx, 1.);
++            }
++            self.idx += 1;
++            if state.is_all_last {
++                self.arr.fill(self.idx, 1.);
++            }
++            self.idx += 1;
++        }
++
+         assert_eq!(self.idx, self.arr.rows());
+         let arr = self.arr.build();
+         debug_assert!(arr.iter().all(|&v| (0. ..=1.).contains(&v)));
+diff --git a/libriichi/src/state/player_state.rs b/libriichi/src/state/player_state.rs
+index 269b2e7..e409a08 100644
+--- a/libriichi/src/state/player_state.rs
++++ b/libriichi/src/state/player_state.rs
+@@ -69,6 +69,8 @@ pub struct PlayerState {
+     pub(super) oya: u8,
+     /// Including 西入 sudden death.
+     pub(super) is_all_last: bool,
++    /// Extension: East-only game.
++    pub(super) is_tonpuu: bool,
+     pub(super) dora_indicators: ArrayVec<[Tile; 5]>,
+ 
+     /// 24 is the theoretical max size of kawa, however, since None is included
+@@ -159,6 +161,13 @@ impl PlayerState {
+         self.update(&event)
+     }
+ 
++    /// Extension: agari points (ron, tsumo_ko, tsumo_oya) without ura dora.
++    #[pyo3(name = "agari_points")]
++    fn agari_points_py(&self, is_ron: bool) -> Result<(i32, i32, i32)> {
++        let p = self.agari_points(is_ron, &[])?;
++        Ok((p.ron, p.tsumo_ko, p.tsumo_oya))
++    }
++
+     /// Raises an exception if the action is not valid.
+     #[pyo3(name = "validate_reaction")]
+     pub(super) fn validate_reaction_json(&self, mjai_json: &str) -> Result<()> {
+diff --git a/libriichi/src/state/test.rs b/libriichi/src/state/test.rs
+index 99e5c13..e3df3a7 100644
+--- a/libriichi/src/state/test.rs
++++ b/libriichi/src/state/test.rs
+@@ -224,6 +224,7 @@ fn can_chi() {
+ fn furiten() {
+     let mut ps = PlayerState::new(0);
+     ps.test_update(&Event::StartKyoku {
++        tonpuu: None,
+         bakaze: t!(E),
+         kyoku: 1,
+         honba: 0,
+@@ -480,6 +481,7 @@ fn furiten() {
+ fn dora_count_after_kan() {
+     let mut ps = PlayerState::new(0);
+     ps.test_update(&Event::StartKyoku {
++        tonpuu: None,
+         bakaze: t!(E),
+         kyoku: 1,
+         honba: 0,
+diff --git a/libriichi/src/state/update.rs b/libriichi/src/state/update.rs
+index 7b6eca2..ec0badb 100644
+--- a/libriichi/src/state/update.rs
++++ b/libriichi/src/state/update.rs
+@@ -69,6 +69,7 @@ impl PlayerState {
+                 oya,
+                 scores,
+                 tehais,
++                tonpuu,
+             } => self.start_kyoku(
+                 bakaze,
+                 dora_marker,
+@@ -78,6 +79,7 @@ impl PlayerState {
+                 oya,
+                 scores,
+                 tehais,
++                tonpuu.unwrap_or(false),
+             )?,
+ 
+             Event::Tsumo { actor, pai } => self.tsumo(actor, pai)?,
+@@ -132,6 +134,7 @@ impl PlayerState {
+         oya: u8,
+         scores: [i32; 4],
+         tehais: [[Tile; 13]; 4],
++        tonpuu: bool,
+     ) -> Result<()> {
+         self.tehai.fill(0);
+         self.waits.fill(false);
+@@ -149,9 +152,10 @@ impl PlayerState {
+         self.oya = self.rel(oya) as u8;
+         self.jikaze = must_tile!(tu8!(E) + (4 - self.oya) % 4);
+         self.kyoku = kyoku - 1;
++        self.is_tonpuu = tonpuu;
+         self.is_all_last = match self.bakaze.as_u8() {
+-            tu8!(E) => false,
+-            tu8!(S) => self.kyoku == 3,
++            tu8!(E) => tonpuu && self.kyoku == 3,
++            tu8!(S) => tonpuu || self.kyoku == 3,
+             _ => true,
+         };
+ 
