@@ -1,0 +1,50 @@
+{
+ "run": "sl_b",
+ "init_from": "/root/gpufree-data/mj/ckpt/sl_a/best.pth",
+ "train_sources": [
+  "majsoul-jade-2022",
+  "majsoul-jade-2023",
+  "majsoul-jade-2024",
+  "majsoul-jade-2025"
+ ],
+ "val_sources": [
+  "majsoul-jade-2025",
+  "majsoul-jade-2024",
+  "majsoul-jade-2023",
+  "majsoul-jade-2022"
+ ],
+ "kinds": [
+  "hanchan"
+ ],
+ "batch_size": 512,
+ "lr": 5e-05,
+ "warmup": 200,
+ "max_steps": 6000,
+ "final_lr_frac": 0.1,
+ "epochs": 1,
+ "augment": true,
+ "workers": 10,
+ "file_batch": 4,
+ "model": {
+  "in_ch": 1014,
+  "d_model": 512,
+  "n_layers": 12,
+  "n_heads": 8
+ },
+ "w_rank": 0.05,
+ "w_delta": 0.2,
+ "w_value": 0.05,
+ "log_every": 200,
+ "eval_every": 1000,
+ "eval_batches": 100,
+ "save_every": 1000,
+ "compile": true,
+ "wd": 0.05,
+ "clip": 1,
+ "val_kinds": [
+  "hanchan"
+ ],
+ "shuffle_buffer": 65536,
+ "prefetch_factor": 2,
+ "max_samples_per_player": 64
+}

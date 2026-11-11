@@ -1,0 +1,19 @@
+{
+ "run": "rl_smoke",
+ "sl_ckpt": "/root/gpufree-data/mj/ckpt/overfit/best.pth",
+ "grp_ckpt": "/root/gpufree-data/mj/ckpt/grp_dummy.pth",
+ "lr": 0.00001,
+ "max_iters": 2,
+ "seeds_per_iter": 25,
+ "temp": 1,
+ "mb": 256,
+ "ppo_epochs": 1,
+ "clip": 0.2,
+ "c_v": 0.5,
+ "beta_kl": 0.05,
+ "c_ent": 0.005,
+ "eval_every": 2,
+ "eval_seeds": 25,
+ "pool_every": 1,
+ "patience": 3
+}
