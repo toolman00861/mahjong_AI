@@ -43,13 +43,13 @@ docs/            PLAN.md（分步计划）、rules.md（规则与奖励）、TIP
 
 | 文件 | 位置 | 说明 |
 |---|---|---|
-| `final_rl_it40.pth` | Releases → `v1.0` | **最终模型**，151 MB，SHA-256 `5b32372b29f884ccabd9778ec9f9c2d89eec15e4b07af01bb89cc682608d0a93` |
+| `final_rl_it40.pth` | Releases → tag `1` | **最终模型**，151 MB，SHA-256 `5b32372b29f884ccabd9778ec9f9c2d89eec15e4b07af01bb89cc682608d0a93` |
 | `models/grp_hanchan.pth` | 仓库内 | 顺位预测模型，只有继续 RL 训练时需要 |
 
 ```bash
 mkdir -p models
 # 私有仓库需要登录后下载（网页下载或 gh release download）
-gh release download v1.0 -R Mrbrub/mahjong_AI -p final_rl_it40.pth -D models
+gh release download 1 -R Mrbrub/mahjong_AI -p final_rl_it40.pth -D models
 ```
 
 ---
