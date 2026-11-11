@@ -1,4 +1,4 @@
-# mahjong_AI：雀魂四人半庄（玉之间）专用 Transformer 麻将 AI
+# mahjong_AI： Transformer 麻将 AI
 
 只为对局强度训练的日麻 AI，目标规则为**雀魂四人半庄、玉之间计分**。
 
